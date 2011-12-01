@@ -1,5 +1,4 @@
-create or replace
-package pkg_wrap as
+create or replace package pkg_wrap as
 
   -- This procedure creates a new wrapped object
   procedure prc_wrap_new(p_src in clob);
@@ -16,8 +15,7 @@ package pkg_wrap as
 end;
 /
 
-create or replace
-package body pkg_wrap as
+create or replace package body pkg_wrap as
 
 function clob_concat(p_clob in clob, p_clob2 in clob) return clob is
   v_clob   clob;
