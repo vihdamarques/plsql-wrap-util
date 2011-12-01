@@ -1,17 +1,23 @@
-create or replace package pkg_wrap as
-  procedure prc_create(p_src in clob);
-  procedure prc_alter(p_name in varchar2);
-  function fnc_unwrap(p_name  in varchar2
-                     ,p_owner in varchar2 default null) return clob;
+create or replace
+package pkg_wrap as
+
+  -- This procedure creates a new wrapped object
+  procedure prc_wrap_new(p_src in clob);
+
+  -- This procedure overwrites a existing object, wrapping it *BE CAREFUL*
+  procedure prc_wrap(p_name in varchar2);
+
+  -- This procedure overwrites a existing object, unwrapping it *BE CAREFUL*
+  procedure prc_unwrap(p_name  in varchar2);
+
+  -- This function returns the source of a wrapped object
+  function  fnc_unwrap(p_name  in varchar2
+                      ,p_owner in varchar2 default user) return clob;
 end;
 /
 
-create or replace package body pkg_wrap as
-
-procedure prc_create(p_src in clob) is
-begin
-  dbms_ddl.create_wrapped(p_src);
-end;
+create or replace
+package body pkg_wrap as
 
 function clob_concat(p_clob in clob, p_clob2 in clob) return clob is
   v_clob   clob;
@@ -26,16 +32,40 @@ begin
   v_return := v_clob;
   dbms_lob.freetemporary(v_clob);
   return v_return;
-end;
+end clob_concat;
 
-procedure prc_alter(p_name in varchar2) is
+procedure prc_wrap_new(p_src in clob) is
+  v_i   number := 0;
+  v_src dbms_sql.varchar2a;
+begin
+  for i in 1 .. (ceil(nvl(dbms_lob.getlength(p_src),0)/32767)) loop
+    v_i := v_i + 1;
+    v_src(v_i) := dbms_lob.substr(p_src,32767,v_i*32767-32767 + 1);
+  end loop;
+  htp.p(v_src(1));
+  dbms_ddl.create_wrapped(v_src,1,v_i);
+end prc_wrap_new;
+
+procedure prc_unwrap(p_name in varchar2) is 
+  v_cursor pls_integer;
+  v_rows   pls_integer;
+begin
+  v_cursor := dbms_sql.open_cursor;
+  dbms_sql.parse(c             => v_cursor
+                ,statement     => 'create or replace '||fnc_unwrap(p_name)
+                ,language_flag => dbms_sql.native);
+  v_rows := dbms_sql.execute(v_cursor);
+  dbms_sql.close_cursor(v_cursor);
+end prc_unwrap;
+
+procedure prc_wrap(p_name in varchar2) is
   v_src clob := empty_clob();
   cursor obj is
     select object_name name
           ,object_type type
       from user_objects
      where object_name = upper(p_name)
-       and object_type in ('PROCEDURE','PACKAGE BODY','FUNCTION')
+       and object_type in ('PROCEDURE','PACKAGE BODY','FUNCTION','TYPE BODY')
      order by object_type;
 
   cursor src(pp_name in varchar2
@@ -55,7 +85,7 @@ begin
     v_src := 'create or replace ' || v_src;
     dbms_ddl.create_wrapped(v_src);
   end loop;
-end;
+end prc_wrap;
 
 function fnc_unwrap(p_name  in varchar2
                    ,p_owner in varchar2 default user) return clob as
@@ -102,7 +132,7 @@ function fnc_unwrap(p_name  in varchar2
      where object_name  = upper(p_name)
        and owner        = upper(p_owner)
        and object_name != 'PKG_WRAP'
-       and object_type in ('PROCEDURE','PACKAGE BODY','FUNCTION')
+       and object_type in ('PROCEDURE','PACKAGE BODY','FUNCTION','TYPE BODY')
      order by object_type;
 
   cursor src(pp_name in varchar2, pp_type in varchar2, pp_owner in varchar2) is
