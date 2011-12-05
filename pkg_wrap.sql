@@ -3,10 +3,10 @@ create or replace package pkg_wrap as
   -- This procedure creates a new wrapped object
   procedure prc_wrap_new(p_src in clob);
 
-  -- This procedure overwrites a existing object, wrapping it *BE CAREFUL*
+  -- This procedure overwrites an existing object, wrapping it *BE CAREFUL*
   procedure prc_wrap(p_name in varchar2);
 
-  -- This procedure overwrites a existing object, unwrapping it *BE CAREFUL*
+  -- This procedure overwrites an existing object, unwrapping it *BE CAREFUL*
   procedure prc_unwrap(p_name  in varchar2);
 
   -- This function returns the source of a wrapped object
